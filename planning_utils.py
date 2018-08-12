@@ -1,7 +1,8 @@
 from enum import Enum
 from queue import PriorityQueue
 import numpy as np
-
+#import networkx as nx
+import matplotlib.pyplot as plt
 
 def create_grid(data, drone_altitude, safety_distance):
     """
@@ -139,7 +140,20 @@ def a_star(grid, h, start, goal):
         print('**********************') 
     return path[::-1], path_cost
 
+def visualize_path(grid, path, start):
+    sgrid = np.zeros(np.shape(grid), dtype=np.str)
+    sgrid[:] = ' '
+    sgrid[grid[:] == 1] = 'O'
 
+    pos = start
+
+    for a in path:
+        da = a.value
+        sgrid[pos[0], pos[1]] = str(a)
+        pos = (pos[0] + da[0], pos[1] + da[1])
+    sgrid[pos[0], pos[1]] = 'G'
+    sgrid[start[0], start[1]] = 'S'
+    return sgrid
 
 def heuristic(position, goal_position):
     return np.linalg.norm(np.array(position) - np.array(goal_position))
@@ -177,3 +191,15 @@ def collinearity_prune(path, epsilon=1e-5):
         else:
             i += 1
     return pruned_path
+
+def plot_graph_skeleton(grid, skeleton, start_ne, goal_ne):
+    plt.imshow(grid, origin='lower')
+    plt.imshow(skeleton, cmap='Greys', origin='lower', alpha=0.7)
+
+    plt.plot(start_ne[1], start_ne[0], 'rx')
+    plt.plot(goal_ne[1], goal_ne[0], 'rx')
+
+    plt.xlabel('EAST')
+    plt.ylabel('NORTH')
+    plt.show()
+

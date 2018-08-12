@@ -5,7 +5,7 @@ from enum import Enum, auto
 
 import numpy as np
 
-from planning_utils import a_star, heuristic, create_grid, collinearity_prune
+from planning_utils import a_star, heuristic, create_grid, collinearity_prune, plot_graph_skeleton
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
@@ -13,6 +13,8 @@ from udacidrone.frame_utils import global_to_local
 
 import csv
 
+from skimage.morphology import medial_axis
+from skimage.util import invert
 
 class States(Enum):
     MANUAL = auto()
@@ -129,8 +131,6 @@ class MotionPlanning(Drone):
         lon0 = data[0][1].lstrip().rstrip().split(' ')[1]
         print('colliders lat0:{0}, lon0:{1}'.format(lat0, lon0))
         # TODO: set home position to (lon0, lat0, 0)
-
-        print('self:{0}, {1}, {2}'.format(self._longitude, self._latitude, self._altitude))
         self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)  # Home Position
 
         # TODO: retrieve current global position
@@ -139,7 +139,7 @@ class MotionPlanning(Drone):
 
         # TODO: convert to current local position using global_to_local()
         current_local_position = global_to_local(global_position, self.global_home) # Global Position => Current Local Position
-        print('current_local_position {0}'.format(current_local_position))
+
         print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
                                                                          self.local_position))
         # Read in obstacle map
@@ -148,17 +148,23 @@ class MotionPlanning(Drone):
         # Define a grid for a particular altitude and safety margin around obstacles
         grid, north_offset, north_offset_max, east_offset, east_offset_max = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
         print("North offset = {0}, North max = {1}, east offset = {2}, east max = {3}".format(north_offset, north_offset_max, east_offset, east_offset_max))
+
+        skeleton = medial_axis(invert(grid))
+
         # Define starting point on the grid (this is just grid center)
-        #grid_start = (-north_offset, -east_offset)
         #  TODO: convert start position to current position rather than map center
         grid_start = (int(current_local_position[0] - north_offset), int(current_local_position[1] - east_offset))
         
         # Set goal as some arbitrary position on the grid
         #grid_goal = (-north_offset + 10, -east_offset + 10)
-        self.goal_global_position = [-122.401902, 37.794409, self.global_home[2]]
+        self.goal_global_position = [-122.401905876, 37.79673913, -0.147]
+
         # TODO: adapt to set goal as latitude / longitude position and convert
         goal_local_position = global_to_local(self.goal_global_position, self.global_home)
         grid_goal = (int(goal_local_position[0] - north_offset), int(goal_local_position[1] - east_offset))
+
+        #plot_graph_skeleton(grid, skeleton, current_local_position, goal_local_position)
+        plot_graph_skeleton(grid, skeleton, grid_start, grid_goal)
 
         # Run A* to find a path from start to goal
         # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
