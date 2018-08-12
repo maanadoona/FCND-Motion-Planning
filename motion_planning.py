@@ -5,7 +5,8 @@ from enum import Enum, auto
 
 import numpy as np
 
-from planning_utils import a_star, heuristic, create_grid, collinearity_prune, plot_graph_skeleton
+#from planning_utils import a_star, heuristic, create_grid, collinearity_prune, plot_graph_skeleton, create_grid_and_edges, plot_graph_network, closest_point
+import planning_utils as pu
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
@@ -15,6 +16,9 @@ import csv
 
 from skimage.morphology import medial_axis
 from skimage.util import invert
+
+import networkx as nx
+import numpy.linalg as LA
 
 class States(Enum):
     MANUAL = auto()
@@ -146,10 +150,11 @@ class MotionPlanning(Drone):
         data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
         
         # Define a grid for a particular altitude and safety margin around obstacles
-        grid, north_offset, north_offset_max, east_offset, east_offset_max = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
+        #grid, north_offset, north_offset_max, east_offset, east_offset_max = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
+        grid, edges, north_offset, north_offset_max, east_offset, east_offset_max = pu.create_grid_and_edges(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
         print("North offset = {0}, North max = {1}, east offset = {2}, east max = {3}".format(north_offset, north_offset_max, east_offset, east_offset_max))
 
-        skeleton = medial_axis(invert(grid))
+        #skeleton = medial_axis(invert(grid))
 
         # Define starting point on the grid (this is just grid center)
         #  TODO: convert start position to current position rather than map center
@@ -159,21 +164,38 @@ class MotionPlanning(Drone):
         #grid_goal = (-north_offset + 10, -east_offset + 10)
         self.goal_global_position = [-122.401905876, 37.79673913, -0.147]
 
+        self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)  # Home Position
         # TODO: adapt to set goal as latitude / longitude position and convert
         goal_local_position = global_to_local(self.goal_global_position, self.global_home)
         grid_goal = (int(goal_local_position[0] - north_offset), int(goal_local_position[1] - east_offset))
 
         #plot_graph_skeleton(grid, skeleton, current_local_position, goal_local_position)
-        plot_graph_skeleton(grid, skeleton, grid_start, grid_goal)
+        #plot_graph_skeleton(grid, skeleton, grid_start, grid_goal)
+        #plot_graph_network(grid, edges)
 
         # Run A* to find a path from start to goal
         # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
         # or move to a different search space such as a graph (not done here)
         print('Local Start and Goal: ', grid_start, grid_goal)
-        path, _ = a_star(grid, heuristic, grid_start, grid_goal)
+        '''
+        G = nx.Graph()
+        for e in edges:
+            p1 = e[0]
+            p2 = e[1]
+            dist = LA.norm(np.array(p2) - np.array(p1))
+            G.add_edge(p1, p2, weight=dist)
+
+        start_ne_g = pu.closest_point(G, grid_start)
+        goal_ne_g = pu.closest_point(G, grid_goal)
+        '''
+        self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)  # Home Position
+        path, _ = pu.a_star(grid, pu.heuristic, grid_start, grid_goal)
         # TODO: prune path to minimize number of waypoints
         # TODO (if you're feeling ambitious): Try a different approach altogether!
-        path = collinearity_prune(path)
+        self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)  # Home Position
+        path = pu.collinearity_prune(path)
+        self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)  # Home Position
+        #pu.plot_graph_a_star(grid, edges, path, grid_start, start_ne_g, grid_goal, goal_ne_g)
 
         # Convert path to waypoints
         waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in path]
