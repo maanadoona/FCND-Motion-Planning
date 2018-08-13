@@ -120,8 +120,6 @@ class MotionPlanning(Drone):
         data = msgpack.dumps(self.waypoints)
         self.connection._master.write(data)
 
-        pu.plot_graph_a_star(self.grid, self.edges, self.path, self.start_grid, self.goal_grid)
-
     def plan_path(self):
         self.flight_state = States.PLANNING
         print("Searching for a path ...")
@@ -168,12 +166,8 @@ class MotionPlanning(Drone):
         self.start_grid = (int(start_local_position[0] - north_offset), int(start_local_position[1] - east_offset))
 
         # Set goal as some arbitrary position on the grid
-        # goal_global_position = [-122.401154, 37.793062, -0.147] #292 Sansome St, San Francisco, CA 94104, USA
         goal_global_position = [-122.397347, 37.794966,
                                 -0.147]  # Three Embarcadero Center, San Francisco, CA 94111, USA
-        #goal_global_position = [-122.39799266951371, 37.795303606126495,
-        #                        -0.147]  # Three Embarcadero Center, San Francisco, CA 94111, USA
-
         #goal_global_position = [-122.395093, 37.792088,
         #                        -0.147]  # 59 Main St, San Francisco, CA 94105, USA
 
@@ -208,8 +202,9 @@ class MotionPlanning(Drone):
         #self.path, _ = pu.a_star(self.grid, pu.heuristic, self.start_grid, self.goal_grid)
         self.path, _ = pu.a_star(self.grid, pu.heuristic, self.start_grid, self.goal_grid)
 
-
         self.path = pu.collinearity_prune(self.path)
+
+        #pu.plot_graph_a_star(self.grid, self.edges, self.path, self.start_grid, start_ne_g, self.goal_grid, goal_ne_g)
         # Convert path to waypoints
         waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in self.path]
         # Set self.waypoints
