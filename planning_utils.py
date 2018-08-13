@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from bresenham import bresenham
 import numpy.linalg as LA
+import networkx as nx
 
 def create_grid(data, drone_altitude, safety_distance):
     """
