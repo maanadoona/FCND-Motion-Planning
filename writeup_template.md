@@ -55,16 +55,16 @@ I got the good flying result from medival. but I couldn't get flight from Graph 
 #### 4. Set grid goal position from geodetic coords
 This step is to add flexibility to the desired goal location. Should be able to choose any (lat, lon) within the map and have it rendered to a goal location on the grid.
 I choose two positions to test. I got the gps location from this web site : https://www.gps-coordinates.net/
-![Medival1](./result/59MainSt_skeleton.png)
-![GraphSearch1](./result/ThreeEmbarcaderoCenter_skeleton.png)
-![Medival2](./result/59MainSt_network.png)
-![GraphSearch2](./result/ThreeEmbarcaderoCenter_network.png)
+
+![Medival1](./result/59MainSt_skeleton.png) ![GraphSearch1](./result/ThreeEmbarcaderoCenter_skeleton.png)
+
+![Medival2](./result/59MainSt_network.png) ![GraphSearch2](./result/ThreeEmbarcaderoCenter_network.png)
+
 
 #### 5. Modify A* to include diagonal motion (or replace A* altogether)
 Minimal requirement here is to modify the code in planning_utils() to update the A* implementation to include diagonal motions on the grid that have a cost of sqrt(2), but more creative solutions are welcome. Explain the code you used to accomplish this step.
 
 #### 6. Cull waypoints 
-For this step you can use a collinearity test or ray tracing method like Bresenham. The idea is simply to prune your path of unnecessary waypoints. Explain the code you used to accomplish this step.
 I use the collinearity_prune() method to reduce unnecessary waypoints. When I didn't use it. flying car moves step by step.
 
 
