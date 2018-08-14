@@ -53,22 +53,17 @@ I tried two algorithms to make grid. First one is medival. The other is Graph Se
 I got the good flying result from medival. but I couldn't get flight from Graph Search because connection is lost from simulator, TIMEOUT. I think Graph Search computation time is longer than timeout.
 
 #### 4. Set grid goal position from geodetic coords
-This step is to add flexibility to the desired goal location. Should be able to choose any (lat, lon) within the map and have it rendered to a goal location on the grid.
-I choose two positions to test. I got the gps location from this web site : https://www.gps-coordinates.net/
+I got the gps location from this web site : https://www.gps-coordinates.net/
+I select the goal position as below. I use the skeleton and I got the path (green)
 
-![Medival1](./result/59MainSt_skeleton.png) ![GraphSearch1](./result/ThreeEmbarcaderoCenter_skeleton.png)
-
-![Medival2](./result/59MainSt_network.png) ![GraphSearch2](./result/ThreeEmbarcaderoCenter_network.png)
+![1](./result/1.png) 
+![2](./result/2.png)
+![3](./result/3.png)
 
 
 #### 5. Modify A* to include diagonal motion (or replace A* altogether)
-I changed the cost function from one increasement to sqrt(2). I compare the result of them.
-At the case of Cost:One, I got the total cost of 344 and at the case of Cost:sqrt(2), I got the 275.
-The case of Cost:sqrt(2) is lower than Cost:One.
-But, from the below pictures, I don't think lower cost means the better path. Look those pictures and compare them.
-I think CostOne is better than CostSqrt(2) at the start region and CostSqrt(2) is better than CostOne at the goal region.
+When I use the skeleton, I need to move up-right/left, down-right/left. So, I set those movement in Action function in planning_util.py and set the cost as sqrt(2).
 
-![Cost_One](./result/ThreeEmbarcaderoCenter_network_IncreaseOne_cost344.png) ![Cost_sqrt(2)](./result/ThreeEmbarcaderoCenter_network_Euclidean_cost275.png)
 
 #### 6. Cull waypoints 
 I use the collinearity_prune() method to reduce unnecessary waypoints. When I didn't use it. flying car moves step by step.
