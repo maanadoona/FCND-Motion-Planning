@@ -122,6 +122,7 @@ def a_star(grid, h, start, goal):
                 da = action.delta
                 next_node = (current_node[0] + da[0], current_node[1] + da[1])
                 branch_cost = current_cost + action.cost
+                #branch_cost = costistic(next_node, start)
                 queue_cost = branch_cost + h(next_node, goal)
                 
                 if next_node not in visited:                
@@ -161,6 +162,9 @@ def visualize_path(grid, path, start):
 
 def heuristic(position, goal_position):
     return np.linalg.norm(np.array(position) - np.array(goal_position))
+
+def costistic(position, start_position):
+    return np.linalg.norm(np.array(position) - np.array(start_position))
 
 
 def collinearity_prune(path, epsilon=1e-5):

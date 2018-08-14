@@ -62,7 +62,13 @@ I choose two positions to test. I got the gps location from this web site : http
 
 
 #### 5. Modify A* to include diagonal motion (or replace A* altogether)
-Minimal requirement here is to modify the code in planning_utils() to update the A* implementation to include diagonal motions on the grid that have a cost of sqrt(2), but more creative solutions are welcome. Explain the code you used to accomplish this step.
+I changed the cost function from one increasement to sqrt(2). I compare the result of them.
+At the case of Cost:One, I got the total cost of 344 and at the case of Cost:sqrt(2), I got the 275.
+The case of Cost:sqrt(2) is lower than Cost:One.
+But, from the below pictures, I don't think lower cost means the better path. Look those pictures and compare them.
+I think CostOne is better than CostSqrt(2) at the start region and CostSqrt(2) is better than CostOne at the goal region.
+
+![Cost_One](./result/ThreeEmbarcaderoCenter_network_IncreaseOne_cost344.png) ![Cost_sqrt(2)](./result/ThreeEmbarcaderoCenter_network_Euclidean_cost275.png)
 
 #### 6. Cull waypoints 
 I use the collinearity_prune() method to reduce unnecessary waypoints. When I didn't use it. flying car moves step by step.
