@@ -5,8 +5,7 @@ from enum import Enum, auto
 
 import numpy as np
 
-#from planning_utils import a_star, heuristic, create_grid, collinearity_prune, plot_graph_skeleton, create_grid_and_edges, plot_graph_network, closest_point
-import planning_utils as pu
+from planning_utils import a_star, create_grid, collinearity_prune, find_skel_start_goal, plot_graph_skeleton_compare, skel_heuristic, heuristic
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
@@ -16,8 +15,6 @@ import csv
 
 from skimage.morphology import medial_axis
 from skimage.util import invert
-import numpy.linalg as LA
-import networkx as nx
 
 
 class States(Enum):
@@ -36,7 +33,6 @@ class MotionPlanning(Drone):
         super().__init__(connection)
 
         self.target_position = np.array([0.0, 0.0, 0.0])
-        self.home_position = (0.0, 0.0, 0.0)
         self.waypoints = []
         self.in_mission = True
         self.check_state = {}
@@ -120,206 +116,44 @@ class MotionPlanning(Drone):
         data = msgpack.dumps(self.waypoints)
         self.connection._master.write(data)
 
-    def plan_path_1(self):
-        self.flight_state = States.PLANNING
-        print("Searching for a path ...")
-        TARGET_ALTITUDE = 5
-        SAFETY_DISTANCE = 5
-
-        self.target_position[2] = TARGET_ALTITUDE
-
-        # TODO: read lat0, lon0 from colliders into floating point values
-        with open('colliders.csv') as csvfile:
-            data = list(csv.reader(csvfile))
-        lat0 = data[0][0].lstrip().rstrip().split(' ')[1]
-        lon0 = data[0][1].lstrip().rstrip().split(' ')[1]
-
-        # TODO: set home position to (lon0, lat0, 0)
-        self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)  # Home Position
-
-        # TODO: retrieve current global position
-        global_position = [self._longitude, self._latitude, self._altitude]  # Home Position => Global Position
-
-        # TODO: convert to current local position using global_to_local()
-        start_local_position = global_to_local(global_position,
-                                               self.global_home)  # Global Position => Current Local Position
-
-        # Read in obstacle map
-        data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
-
-        # Define a grid for a particular altitude and safety margin around obstacles
-        self.grid, north_offset, north_offset_max, east_offset, east_offset_max = pu.create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
-        print("North offset = {0}, North max = {1}, east offset = {2}, east max = {3}".format(north_offset,
-                                                                                              north_offset_max,
-                                                                                              east_offset,
-                                                                                              east_offset_max))
-
-        skeleton = medial_axis(invert(self.grid))
-
-        # Define starting point on the grid (this is just grid center)
-        #  TODO: convert start position to current position rather than map center
-        self.start_grid = (int(start_local_position[0] - north_offset), int(start_local_position[1] - east_offset))
-
-        # Set goal as some arbitrary position on the grid
-        goal_global_position = [-122.397347, 37.794966,
-                                -0.147]  # Three Embarcadero Center, San Francisco, CA 94111, USA
-        #goal_global_position = [-122.395093, 37.792088,
-        #                        -0.147]  # 59 Main St, San Francisco, CA 94105, USA
-
-        # TODO: adapt to set goal as latitude / longitude position and convert
-        goal_local_position = global_to_local(goal_global_position, self.global_home)
-        self.goal_grid = (int(goal_local_position[0] - north_offset), int(goal_local_position[1] - east_offset))
-
-        print('global home: {0}'.format(self.global_home))
-        print('start : global position: {0}, local position: {1}, grid: {2}'.format(self.global_position,
-                                                                                    self.local_position, self.start_grid))
-        print('goal : global_position = {0}, local_position: {1}, grid: {2}'.format(goal_global_position,
-                                                                                    goal_local_position, self.goal_grid))
-
-        pu.plot_graph_skeleton(self.grid, skeleton, self.start_grid, self.goal_grid)
-
-        # Run A* to find a path from start to goal
-        # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
-        # or move to a different search space such as a graph (not done here)
-        self.path, cost = pu.a_star(self.grid, pu.heuristic, self.start_grid, self.goal_grid)
-
-
-        self.path = pu.collinearity_prune(self.path)
-
-        print('Cost = {0}'.format(cost))
-
-        # Convert path to waypoints
-        waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in self.path]
-        # Set self.waypoints
-        print(waypoints)
-        self.waypoints = waypoints
-        # TODO: send waypoints to sim (this is just for visualization of waypoints)
-        self.send_waypoints()
-
-    def plan_path_2(self):
-        self.flight_state = States.PLANNING
-        print("Searching for a path ...")
-        TARGET_ALTITUDE = 5
-        SAFETY_DISTANCE = 5
-        self.target_position[2] = TARGET_ALTITUDE
-
-        # TODO: read lat0, lon0 from colliders into floating point values
-        with open('colliders.csv') as csvfile:
-            data = list(csv.reader(csvfile))
-        lat0 = data[0][0].lstrip().rstrip().split(' ')[1]
-        lon0 = data[0][1].lstrip().rstrip().split(' ')[1]
-
-        # TODO: set home position to (lon0, lat0, 0)
-        self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)  # Home Position
-
-        # TODO: retrieve current global position
-        global_position = [self._longitude, self._latitude, self._altitude]  # Home Position => Global Position
-
-        # TODO: convert to current local position using global_to_local()
-        start_local_position = global_to_local(global_position,
-                                               self.global_home)  # Global Position => Current Local Position
-
-        # Read in obstacle map
-        data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
-
-        # Define a grid for a particular altitude and safety margin around obstacles
-        self.grid, self.edges, north_offset, north_offset_max, east_offset, east_offset_max = pu.create_grid_and_edges(data,
-                                                                                                             TARGET_ALTITUDE,
-                                                                                                             SAFETY_DISTANCE)
-
-        print("North offset = {0}, North max = {1}, east offset = {2}, east max = {3}".format(north_offset,
-                                                                                              north_offset_max,
-                                                                                              east_offset,
-                                                                                              east_offset_max))
-
-        # Define starting point on the grid (this is just grid center)
-        #  TODO: convert start position to current position rather than map center
-        self.start_grid = (int(start_local_position[0] - north_offset), int(start_local_position[1] - east_offset))
-
-        # Set goal as some arbitrary position on the grid
-        goal_global_position = [-122.397347, 37.794966,
-                                -0.147]  # Three Embarcadero Center, San Francisco, CA 94111, USA
-        #goal_global_position = [-122.395093, 37.792088,
-        #                        -0.147]  # 59 Main St, San Francisco, CA 94105, USA
-
-
-        # TODO: adapt to set goal as latitude / longitude position and convert
-        goal_local_position = global_to_local(goal_global_position, self.global_home)
-        self.goal_grid = (int(goal_local_position[0] - north_offset), int(goal_local_position[1] - east_offset))
-
-        print('global home: {0}'.format(self.global_home))
-        print('start : global position: {0}, local position: {1}, grid: {2}'.format(self.global_position,
-                                                                                    self.local_position, self.start_grid))
-        print('goal : global_position = {0}, local_position: {1}, grid: {2}'.format(goal_global_position,
-                                                                                    goal_local_position, self.goal_grid))
-
-        G = nx.Graph()
-        for e in self.edges:
-            p1 = e[0]
-            p2 = e[1]
-            dist = LA.norm(np.array(p2) - np.array(p1))
-            G.add_edge(p1, p2, weight=dist)
-
-        start_ne_g = pu.closest_point(G, self.start_grid)
-        goal_ne_g = pu.closest_point(G, self.goal_grid)
-
-        # Run A* to find a path from start to goal
-        # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
-        # or move to a different search space such as a graph (not done here)
-        self.path, cost = pu.a_star(self.grid, pu.heuristic, self.start_grid, self.goal_grid)
-        self.path = pu.collinearity_prune(self.path)
-
-        print('Cost = {0}'.format(cost))
-
-        pu.plot_graph_a_star(self.grid, self.edges, self.path, self.start_grid, start_ne_g, self.goal_grid, goal_ne_g)
-        # Convert path to waypoints
-        waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in self.path]
-        # Set self.waypoints
-        print(waypoints)
-        self.waypoints = waypoints
-        # TODO: send waypoints to sim (this is just for visualization of waypoints)
-        self.send_waypoints()
-
-
-
     def plan_path(self):
         self.flight_state = States.PLANNING
         print("Searching for a path ...")
         TARGET_ALTITUDE = 5
-        SAFETY_DISTANCE = 2
+        SAFETY_DISTANCE = 5
         self.target_position[2] = TARGET_ALTITUDE
 
-        # Start Position
+        # Start : Global Position => Home Position
         with open('colliders.csv') as csvfile:
             data = list(csv.reader(csvfile))
         lat0 = data[0][0].lstrip().rstrip().split(' ')[1]
         lon0 = data[0][1].lstrip().rstrip().split(' ')[1]
-        self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)  # Home Position
-        start_global_position = [self._longitude, self._latitude, self._altitude]  # Home Position => Global Position
+        print(lat0, lon0)
+        self.set_home_position(np.float64(lon0), np.float64(lat0), 0.)
+        start_global_position = [self._longitude, self._latitude, self._altitude]
 
         # Start : Local Position
         start_local_position = global_to_local(start_global_position, self.global_home)
-
-        # Goal : Global Position
-        print(lat0, lon0)
-        #goal_global_position = [-122.397347, 37.794966,
-        #                        -0.147]  # Three Embarcadero Center, San Francisco, CA 94111, USA
-        #goal_global_position = [-122.395093, 37.792088,
-        #                        -0.147]  # 59 Main St, San Francisco, CA 94105, USA
-
-        #8449 Main St, San Francisco, CA 94105, USA
-        #goal_global_position = [-122.39919, 37.795175, -0.147]
-        # 298 Market St, San Francisco, CA 94105, USA
-        goal_global_position = [-122.396238, 37.79338, -0.147]
-
-        # Goal : Local Position
-        goal_local_position = global_to_local(goal_global_position, self.global_home)
 
         # Read in obstacle map
         data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
 
         # Define a grid for a particular altitude and safety margin around obstacles
-        grid, north_offset, east_offset = pu.create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
+        grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
+
+        # Goal : Global Position
+        #goal_global_position = [-122.397347, 37.794966,
+        #                        -0.147]  # Three Embarcadero Center, San Francisco, CA 94111, USA
+        goal_global_position = [-122.395093, 37.792088,
+                                -0.147]  # 59 Main St, San Francisco, CA 94105, USA
+        #8449 Main St, San Francisco, CA 94105, USA
+        #goal_global_position = [-122.39919, 37.795175, -0.147]
+        # 298 Market St, San Francisco, CA 94105, USA
+        #goal_global_position = [-122.396238, 37.79338, -0.147]
+
+        # Goal : Local Position
+        goal_local_position = global_to_local(goal_global_position, self.global_home)
+
 
         # Start : Grid Position
         start_grid = (int(start_local_position[0] - north_offset), int(start_local_position[1] - east_offset))
@@ -332,27 +166,22 @@ class MotionPlanning(Drone):
 
         # Make Skeleton
         skeleton = medial_axis(invert(grid))
-        #print(len(skeleton))
-        #print(invert(skeleton).astype(np.float))
-        #print(len(self.grid))
-        #print(self.grid)
-        skel_start, skel_goal = pu.find_start_goal(skeleton, tuple(start_grid), tuple(goal_grid))
-        print(start_grid, goal_grid)
-        print(tuple(skel_start), skel_goal)
+        skel_start, skel_goal = find_skel_start_goal(skeleton, start_grid, goal_grid)
 
         # A*
-        path, cost = pu.a_star(grid, 0, start_grid, goal_grid)
-        path2, cost2 = pu.a_star(grid, 1, start_grid, goal_grid)
-        #path, cost = pu.a_star(invert(skeleton).astype(np.float), 0, tuple(skel_start), tuple(skel_goal))
-        #path2, cost2 = pu.a_star(invert(skeleton).astype(np.float), 1, tuple(skel_start), tuple(skel_goal))
+        path, cost = a_star(invert(skeleton).astype(np.int), heuristic, tuple(skel_start), tuple(skel_goal))
+        path2, cost2 = a_star(grid, heuristic, start_grid, goal_grid)
+
         print('Cost = {0}, Cost2 = {1}'.format(cost, cost2))
 
         # Remove unnecessary path
-        path = pu.collinearity_prune(path)
-        path2 = pu.collinearity_prune(path2)
+        path = collinearity_prune(path)
+        path2 = collinearity_prune(path2)
 
         # Plot Path
-        pu.plot_graph_skeleton_compare(grid, skeleton, path, path2, start_grid, goal_grid)
+        plot_graph_skeleton_compare(grid, skeleton, path, path2, start_grid, goal_grid)
+
+        print(path, path2)
 
         # Convert path to waypoints
         waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in path]
@@ -383,21 +212,4 @@ if __name__ == "__main__":
     drone = MotionPlanning(conn)
     time.sleep(1)
 
-    #drone.make_path()
     drone.start()
-    '''
-    with open('colliders.csv') as csvfile:
-        data = list(csv.reader(csvfile))
-
-    print(data[0][0])
-    print(data[0][1])
-
-    lat0 = data[0][0].lstrip().rstrip().split(' ')[1]
-    lon0 = data[0][1].lstrip().rstrip().split(' ')[1]
-
-    print(lat0)
-    print(lon0)
-    '''
-    #drone.home_position = np.array([np.float(lon0), np.float(lat0), 0.0])
-    #drone.home_position = (np.float(lon0), np.float(lat0), 0.0)
-    #print(drone.home_position)
