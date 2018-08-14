@@ -149,7 +149,7 @@ class MotionPlanning(Drone):
 
         # Define a grid for a particular altitude and safety margin around obstacles
         self.grid, north_offset, north_offset_max, east_offset, east_offset_max = pu.create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
-
+        '''
         self.grid, self.edges, north_offset, north_offset_max, east_offset, east_offset_max = pu.create_grid_and_edges(data,
                                                                                                              TARGET_ALTITUDE,
                                                                                                              SAFETY_DISTANCE)
@@ -158,8 +158,8 @@ class MotionPlanning(Drone):
                                                                                               north_offset_max,
                                                                                               east_offset,
                                                                                               east_offset_max))
-        '''
-        #skeleton = medial_axis(invert(self.grid))
+
+        skeleton = medial_axis(invert(self.grid))
 
         # Define starting point on the grid (this is just grid center)
         #  TODO: convert start position to current position rather than map center
@@ -182,7 +182,7 @@ class MotionPlanning(Drone):
         print('goal : global_position = {0}, local_position: {1}, grid: {2}'.format(goal_global_position,
                                                                                     goal_local_position, self.goal_grid))
 
-        '''
+
         pu.plot_graph_skeleton(self.grid, skeleton, self.start_grid, self.goal_grid)
         '''
         G = nx.Graph()
@@ -194,7 +194,7 @@ class MotionPlanning(Drone):
 
         start_ne_g = pu.closest_point(G, self.start_grid)
         goal_ne_g = pu.closest_point(G, self.goal_grid)
-
+        '''
         # Run A* to find a path from start to goal
         # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
         # or move to a different search space such as a graph (not done here)
@@ -205,7 +205,7 @@ class MotionPlanning(Drone):
 
         self.path = pu.collinearity_prune(self.path)
 
-        pu.plot_graph_a_star(self.grid, self.edges, self.path, self.start_grid, start_ne_g, self.goal_grid, goal_ne_g)
+        #pu.plot_graph_a_star(self.grid, self.edges, self.path, self.start_grid, start_ne_g, self.goal_grid, goal_ne_g)
         # Convert path to waypoints
         waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in self.path]
         # Set self.waypoints
