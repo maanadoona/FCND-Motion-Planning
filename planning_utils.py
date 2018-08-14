@@ -43,7 +43,7 @@ def create_grid(data, drone_altitude, safety_distance):
             ]
             grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = 1
 
-    return grid, int(north_min), int(north_max), int(east_min), int(east_max)
+    return grid, int(north_min), int(east_min)
 
 
 # Assume all actions cost the same.
@@ -93,7 +93,7 @@ def valid_actions(grid, current_node):
     return valid_actions
 
 
-def a_star(grid, h, start, goal):
+def a_star(grid, cost_type, start, goal):
 
     path = []
     path_cost = 0
@@ -121,9 +121,12 @@ def a_star(grid, h, start, goal):
                 # get the tuple representation
                 da = action.delta
                 next_node = (current_node[0] + da[0], current_node[1] + da[1])
-                branch_cost = current_cost + action.cost
-                #branch_cost = costistic(next_node, start)
-                queue_cost = branch_cost + h(next_node, goal)
+                if cost_type == 0:
+                    branch_cost = current_cost + action.cost
+                else:
+                    branch_cost = costistic(next_node, start)
+
+                queue_cost = branch_cost + heuristic(next_node, goal)
                 
                 if next_node not in visited:                
                     visited.add(next_node)               
@@ -200,16 +203,49 @@ def collinearity_prune(path, epsilon=1e-5):
             i += 1
     return pruned_path
 
-def plot_graph_skeleton(grid, skeleton, start_ne, goal_ne):
-    plt.imshow(grid, origin='lower')
+def plot_graph_skeleton(grid, skeleton, path, start_ne, goal_ne):
+    plt.imshow(grid, cmap='Greys', origin='lower')
     plt.imshow(skeleton, cmap='Greys', origin='lower', alpha=0.7)
+    # For the purposes of the visual the east coordinate lay along
+    # the x-axis and the north coordinates long the y-axis.
+    plt.plot(start_ne[1], start_ne[0], 'x')
+    plt.plot(goal_ne[1], goal_ne[0], 'x')
 
-    plt.plot(start_ne[1], start_ne[0], 'rx')
-    plt.plot(goal_ne[1], goal_ne[0], 'rx')
+    pp = np.array(path)
+    plt.plot(pp[:, 1], pp[:, 0], 'g')
 
     plt.xlabel('EAST')
     plt.ylabel('NORTH')
     plt.show()
+
+def plot_graph_skeleton_compare(grid, skeleton, path, path2, start_ne, goal_ne):
+    plt.imshow(grid, cmap='Greys', origin='lower')
+    plt.imshow(skeleton, cmap='Greys', origin='lower', alpha=0.7)
+    # For the purposes of the visual the east coordinate lay along
+    # the x-axis and the north coordinates long the y-axis.
+    plt.plot(start_ne[1], start_ne[0], 'x')
+    plt.plot(goal_ne[1], goal_ne[0], 'x')
+
+    pp = np.array(path)
+    plt.plot(pp[:, 1], pp[:, 0], 'g')
+
+    pp2 = np.array(path2)
+    plt.plot(pp2[:, 1], pp2[:, 0], 'r')
+
+    plt.xlabel('EAST')
+    plt.ylabel('NORTH')
+    plt.show()
+
+def find_start_goal(skel, start, goal):
+    skel_cells = np.transpose(skel.nonzero())
+    start_min_dist = np.linalg.norm(np.array(start) - np.array(skel_cells), axis=1).argmin()
+    near_start = skel_cells[start_min_dist]
+    goal_min_dist = np.linalg.norm(np.array(goal) - np.array(skel_cells), axis=1).argmin()
+    near_goal = skel_cells[goal_min_dist]
+
+    return near_start, near_goal
+
+
 
 def create_grid_and_edges(data, drone_altitude, safety_distance):
     """
